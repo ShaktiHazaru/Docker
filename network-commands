@@ -1,0 +1,154 @@
+To check the networks available on host run
+
+docker network ls 
+
+NETWORK ID     NAME      DRIVER    SCOPE
+5c7580af22c9   bridge    bridge    local
+3a5c7b7b6049   host      host      local
+64b2b2b75d16   none      null      local
+
+******************************************************************************************************************************************************* 
+
+To know more about the network you can run
+
+docker inspect <name-of-network>
+
+[ec2-user@ip-172-31-81-170 ~]$ docker inspect bridge
+[
+    {
+        "Name": "bridge",
+        "Id": "5c7580af22c91d48883c653e7d482156437e18710f9d26c3498d44100c9ebdf7",
+        "Created": "2025-01-28T19:37:50.577339967Z",
+        "Scope": "local",
+        "Driver": "bridge",
+        "EnableIPv6": false,
+        "IPAM": {
+            "Driver": "default",
+            "Options": null,
+            "Config": [
+                {
+                    "Subnet": "172.17.0.0/16",
+                    "Gateway": "172.17.0.1"
+                }
+            ]
+        },
+        "Internal": false,
+        "Attachable": false,
+        "Ingress": false,
+        "ConfigFrom": {
+            "Network": ""
+        },
+        "ConfigOnly": false,
+        "Containers": {
+            "06b2e78ecd428caaa634f3ab5be9c44507bd2c942998b952db703e37d683917a": {
+                "Name": "test",
+                "EndpointID": "4f6bb279fb744490a1310158cbf789b0a74fdd6855b6bdd382c2462622c1baba",
+                "MacAddress": "02:42:ac:11:00:02",
+                "IPv4Address": "172.17.0.2/16",
+                "IPv6Address": ""
+            }
+        },
+        "Options": {
+            "com.docker.network.bridge.default_bridge": "true",
+            "com.docker.network.bridge.enable_icc": "true",
+            "com.docker.network.bridge.enable_ip_masquerade": "true",
+            "com.docker.network.bridge.host_binding_ipv4": "0.0.0.0",
+            "com.docker.network.bridge.name": "docker0",
+            "com.docker.network.driver.mtu": "1500"
+        },
+        "Labels": {}
+    }
+]
+
+
+Here it will also show you the tag containers and the details of the containers that are running under bridge network. 
+***********************************************************************************************************************************************************
+
+Bridge: 
+
+In bridge n/w it allows containers connected to the same bridge n/w to communicate while providing isolation from containers which are not connected to that bridge n/w. 
+
+you can a simple test by exec into container and ping the other container in bridge n/w. You'll see the response.
+
+If you dont mention the network by default the network will be bridge. 
+
+you can check this by using 
+docker inspect container-name
+
+and under networks you will see the name of the network
+ex: "Networks": {
+                "bridge"
+
+If you're using docker community edition, by default you will have bridge, host and none networks.
+If you're using docker Enterprise edition, you will have "Overlay" in addition to host, bridge and none. Overlay is used in Docker swarm.
+
+Anytime docker container gets created with bridge n/w, it will automatically have the IP addr within the range of bridge n/w.
+
+Ex: run ifconfig 
+
+docker0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 172.17.0.1  netmask 255.255.0.0  broadcast 172.17.255.255
+
+now do a inspect on the container 
+ex: docker inspect <container-name> 
+
+"Networks": {
+                "bridge": {
+                    "Gateway": "172.17.0.1",
+                    "IPAddress": "172.17.0.2",
+
+If you see here, gateway is nothing but docker0 and ipaddress for the container is close. 
+
+**********************************************************************************************************************************************************************
+
+User-defined bridge n/w:
+
+To create a user-defined bridge n/w use below:
+
+docker network create --driver bridge Krishna
+
+docker network ls
+
+NETWORK ID     NAME      DRIVER    SCOPE
+dc8c314ac3f7   Krishna   bridge    local
+5c7580af22c9   bridge    bridge    local
+3a5c7b7b6049   host      host      local
+64b2b2b75d16   none      null      local
+
+Now create containers under this n/w. 
+
+docker container run -dt --name test02 --network Krishna ubuntu
+docker container run -dt --name test03 --network Krishna ubuntu
+
+Now if you exec into one of the container and you can ping using the DNS name instead of IP address.
+
+[ec2-user@ip-172-31-81-170 ~]$ docker container exec -it test02 bash
+root@8f5dc27694cf:/# ping test03
+PING test03 (172.18.0.2) 56(84) bytes of data.
+64 bytes from test03.Krishna (172.18.0.2): icmp_seq=1 ttl=127 time=0.053 ms
+64 bytes from test03.Krishna (172.18.0.2): icmp_seq=2 ttl=127 time=0.055 ms
+64 bytes from test03.Krishna (172.18.0.2): icmp_seq=3 ttl=127 time=0.056 ms
+^C
+--- test03 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2042ms
+rtt min/avg/max/mdev = 0.053/0.054/0.056/0.001 ms
+
+This is not possible in bridge n/w, you only ping using ip address . but in user-defined bridge n/w you can ping using DNS.
+
+**********************************************************************************************************************************************************************
+
+Host n/w: 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
