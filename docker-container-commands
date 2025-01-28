@@ -1,0 +1,191 @@
+**** Docker**** 
+
+To execute docker commands as a root user.
+
+1. Create group docker, if group already exists go to step 2
+$ sudo groupadd docker
+
+2. Add your user to the docker group.
+
+$ sudo usermod -aG docker $USER (echo $USER gives you the user details. It gives the same result as whoami but in the command we use $USER.) 
+
+
+**************************************************************************************************************************************************************
+Docker container commands:
+--------------------------
+  
+docker container run -dt --name webserver -p 80:80 httpd 
+If we dont mention the tag, it will always pull the latest by default. 
+If the image is not already present, then it will pull from the registry and save it local.
+
+To automatically delete the  docker  container as soon as it exits, run
+
+docker container run --rm -dt --name hello-world-01 hello-world
+
+To stop a running container: 
+docker container stop container-name
+
+To restart a container:
+docker container restart container-name
+
+To exec into the container run 
+docker container exec -it container-name bash 
+
+To stop all running containers at once run
+
+docker stop $(docker ps -aq) 
+
+To remove all stopped containers run 
+
+docker rm $(docker ps -aq) 
+
+To check the exit code of a container
+echo $?
+
+**************************************************************************************************************************************************************
+
+To check if nginx is working properly in the container run 
+1. exec into the container
+   docker exec -it nginx(container-name) bash
+2. once you're in the container run
+    /etc/init.d/nginx status
+
+  root@d9cd66495bce:/# /etc/init.d/nginx status
+  nginx is running.
+
+**************************************************************************************************************************************************************
+If you try to run the commands that are not available in the container, then you may get below error.
+Error: 
+[ec2-user@ip-172-31-81-170 ~]$ docker container exec -it nginx netstat -ntlp
+OCI runtime exec failed: exec failed: unable to start container process: exec: "netstat": executable file not found in $PATH: unknown
+
+Resolution below: 
+apt-get udpate && apt-get install net-tools - > This is to install net-tools like ifconfig and netstat -ntlp
+apt-get install iputils-ping -> command to install ping 
+
+docker run -dt --name webserver-01 -p 80:80 nginx 
+Error:  docker: Error response from daemon: driver failed programming external connectivity on endpoint webserver-01
+(8e9069f093435eee0c9f20c09b0e679f954631ece9d9ce62c95277b88b40492d): Bind for 0.0.0.0:80 failed: port is already allocated.
+
+RCA: I tried to run the nginx container with host port as 80 but that port was already allocated to httpd server .
+
+if you see the output of netstat -ntlp, here you can see port 80 is already allocated. 
+Proto Recv-Q Send-Q Local Address           Foreign Address         State       PID/Program name    
+tcp        0      0 127.0.0.1:33353         0.0.0.0:*               LISTEN      -                   
+tcp        0      0 0.0.0.0:22              0.0.0.0:*               LISTEN      -                   
+tcp        0      0 0.0.0.0:80              0.0.0.0:*               LISTEN      -                   
+tcp6       0      0 :::22                   :::*                    LISTEN      -                   
+tcp6       0      0 :::80                   :::*                    LISTEN      -          
+
+more details:     
+docker ps 
+CONTAINER ID   IMAGE     COMMAND              CREATED          STATUS          PORTS                               NAMES
+e3536d2a77d5   httpd     "httpd-foreground"   16 minutes ago   Up 16 minutes   0.0.0.0:80->80/tcp, :::80->80/tcp   webserver
+
+solution: change the host port to something else like below
+
+docker run -dt --name webserver-01 -p 81:80 nginx
+
+Note: But before you run the docker run command again, remove already created container that went to exit status due to error. Otherwise you'll get below error.
+docker: Error response from daemon: Conflict. The container name "/webserver-01" is already in use by container
+"52e254fb826486b87bed457e80c6f603d50988f5f90ace1444ed7ab36d897603". You have to remove (or rename) that container to be able to reuse that name.
+
+docker ps -a ( to list all active and exited containers) 
+CONTAINER ID   IMAGE     COMMAND                  CREATED          STATUS          PORTS                               NAMES
+52e254fb8264   nginx     "/docker-entrypoint.…"   4 minutes ago    Created                                             webserver-01
+
+solution for above: 
+docker rm webserver-01 
+
+****************************************************************************************************************************************************************************************
+
+htop: This command is used to see which PID got assigned to  container 
+To install htop inside the container,
+  1. exec into the container
+  2. run apt-get update && apt-get install htop.
+  3. once installed just run htop. 
+
+*****************************************************************************************************************************************************************************************
+
+Disk usage metrics for docker: 
+-------------------------------
+
+" df -h" is specifically used for linux, this gives a good amount of info but it does not really tell the disk usage specific to docker components.
+
+$ docker system df - gives specific to docker 
+o/p: 
+
+TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE
+Images          4         3         269.4MB   74.78MB (27%)
+Containers      3         3         43.13MB   0B (0%)
+Local Volumes   0         0         0B        0B
+Build Cache     0         0         0B        0B
+
+To know the disk space for everything, run 
+
+docker system df -v 
+
+[ec2-user@ip-172-31-81-170 ~]$ docker system df -v
+Images space usage:
+
+REPOSITORY    TAG       IMAGE ID       CREATED        SIZE      SHARED SIZE   UNIQUE SIZE   CONTAINERS
+httpd         latest    f7d8bafbd9a9   4 days ago     148MB     74.77MB       73.44MB       1
+hello-world   latest    74cc54e27dc4   6 days ago     10.1kB    0B            10.07kB       0
+nginx         latest    9bea9f2796e2   2 months ago   192MB     74.77MB       116.9MB       1
+busybox       latest    af4709625109   4 months ago   4.27MB    0B            4.27MB        1
+
+Containers space usage:
+
+CONTAINER ID   IMAGE     COMMAND                  LOCAL VOLUMES   SIZE      CREATED             STATUS             NAMES
+72853cd33e9c   busybox   "sh"                     0               74B       44 minutes ago      Up 44 minutes      test-box
+d9cd66495bce   nginx     "/docker-entrypoint.…"   0               21.8MB    53 minutes ago      Up 53 minutes      webserver-01
+e3536d2a77d5   httpd     "httpd-foreground"       0               21.3MB    About an hour ago   Up About an hour   webserver
+
+Local Volumes space usage:
+
+VOLUME NAME   LINKS     SIZE
+
+Build cache usage: 0B
+
+*****************************************************************************************************************************************************************************************  
+
+Setting environment variables in Docker from CLI: 
+-------------------------------------------------
+We can use -e or --env or we can also pass environment variables in a file with --env-file\
+ex1: 
+docker container run -dt --name ubuntu-env --env GOD=KRISHNA --env GODDESS=RADHA ubuntu
+  
+ex 2:
+docker container run -dt --name env01 --env USER=ADMIN busybox sh
+  
+To check the environment variables, we can do it in two ways 
+
+1.exec into container
+  
+docker container exec -it ubuntu-env bash
+root@84173f80464c:/# env --> just type env 
+
+o/p
+GOD=KRISHNA
+HOSTNAME=84173f80464c
+GODDESS=RADHA
+  
+ ( or ) if you're looking for specific Variable keyname as below. 
+  
+root@84173f80464c:/# env | grep GOD
+GOD=KRISHNA
+GODDESS=RADHA
+
+
+
+2. Use inspect command: 
+  
+docker container inspect ubuntu-env
+"Env": [
+                "GOD=KRISHNA",
+                "GODDESS=RADHA"
+
+*****************************************************************************************************************************************************************************************
+
+  
+
