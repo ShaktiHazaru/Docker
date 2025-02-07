@@ -1,0 +1,75 @@
+Installing Docker on CentOS 9 Stream
+1. Remove any old Docker versions
+We started by removing any old versions of Docker to avoid conflicts with the new installation.
+
+sh
+sudo dnf remove -y docker docker-client docker-client-latest docker-common docker-latest docker-latest-logrotate docker-logrotate docker-engine
+
+2. Install the required packages and set up the Docker repository
+Next, we installed the required packages and set up the Docker repository.
+
+sh
+sudo dnf -y install dnf-plugins-core
+sudo dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+
+3. Install Docker Engine
+We then installed the Docker Engine.
+
+sh
+sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
+4. Start the Docker service and enable it to start on boot
+After installing Docker, we started the Docker service and enabled it to start on boot.
+
+sh
+sudo systemctl start docker
+sudo systemctl enable docker
+
+5. Verify the installation
+To verify the installation, we ran a test Docker container.
+
+sh
+sudo docker run hello-world
+Error Encountered: Cannot connect to the Docker daemon at unix:///run/podman/podman.sock. Is the docker daemon running?
+
+Troubleshooting the Error
+1. Check if Docker is running
+We checked if the Docker daemon was running.
+
+sh
+sudo systemctl status docker
+If it was not running, we started it:
+
+sh
+sudo systemctl start docker
+
+2. Check the Docker socket path
+We verified the Docker socket path and found it pointing to the Podman socket.
+
+sh
+ls -l /var/run/docker.sock
+
+3. Set the correct Docker socket
+We created a new symlink pointing to the Docker socket.
+
+sh
+sudo ln -sf /var/run/docker.sock /run/podman/podman.sock
+
+4. Restart Docker
+After making changes, we restarted the Docker service.
+
+sh
+sudo systemctl restart docker
+5. Verify the connection
+Finally, we verified the connection by running a Docker command again.
+
+sh
+sudo docker run hello-world
+------------------------------------------------------------------------------------------------------------------------
+
+
+Manage Docker as a Non-root User: By default, running Docker requires root privileges. However, you can add your user to the Docker group to manage Docker as a non-root user. Replace ‘linuxconfig’ with your username.
+$ sudo usermod -aG docker $(whoami)
+
+
+
